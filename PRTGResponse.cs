@@ -53,6 +53,7 @@ namespace PRTG_Redis_Sensor
     }
     public class PRTGResponse
     {
+        public string ErrorMessage { get; set; }
         public List<PRTGResult> result { get; set; }
     }
 

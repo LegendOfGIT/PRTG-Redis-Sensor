@@ -1,21 +1,29 @@
-﻿using StackExchange.Redis;
-using System.Linq;
-using System;
-using Newtonsoft.Json;
+﻿using System;
 using System.Diagnostics;
+using System.Linq;
+using System.Net;
+
+using Newtonsoft.Json;
+using StackExchange.Redis;
 
 namespace PRTG_Redis_Sensor
 {
-    class Program
+  class Program
     {
         static void Main(string[] args)
         {
-            var serverHostAndPort = args[0];
-            var connectionConfig = $"{serverHostAndPort},AllowAdmin=True";
-            connectionConfig += GetPasswordFromArgs(args);
+            if (args.Length < 1)
+            {
+              Console.WriteLine("No redis connection string is given");
+              return;
+            }
 
-            var redis = ConnectionMultiplexer.Connect(connectionConfig);
-            var server = redis.GetServer(serverHostAndPort);
+            var redisConnectionString = args[0];
+            var redisConnectionOptions = ConfigurationOptions.Parse(redisConnectionString);
+            var redis = ConnectionMultiplexer.Connect(redisConnectionString);
+            var endpoint = redisConnectionOptions.EndPoints.First() as DnsEndPoint;
+            var databaseId = endpoint.Host;
+            var server = redis.GetServer(endpoint);
 
             var info = server.Info();
             var serverInfo = info.SingleOrDefault(i => i.Key.Equals("Server", StringComparison.InvariantCultureIgnoreCase));
@@ -179,7 +187,7 @@ namespace PRTG_Redis_Sensor
                         {
                             channel = "Keys",
                             unit = PRTGUnit.Count,
-                            value = SafeGetInt32(() => keyspaceInfo != null ? keyspaceInfo.SingleOrDefault(i => i.Key.Equals("db0")).Value.Split(',').Select(x => x.Split('=')).ToDictionary(x => x[0], x => x[1])["keys"] : "0")
+                            value = SafeGetInt32(() => keyspaceInfo != null ? keyspaceInfo.SingleOrDefault(i => i.Key.Equals(databaseId)).Value.Split(',').Select(x => x.Split('=')).ToDictionary(x => x[0], x => x[1])["keys"] : "0")
                         }
                     },
                     {
@@ -187,7 +195,7 @@ namespace PRTG_Redis_Sensor
                         {
                             channel = "Keys Expires",
                             unit = PRTGUnit.Count,
-                            value = SafeGetInt32(() => keyspaceInfo != null ? keyspaceInfo.SingleOrDefault(i => i.Key.Equals("db0")).Value.Split(',').Select(x => x.Split('=')).ToDictionary(x => x[0], x => x[1])["expires"] : "0")
+                            value = SafeGetInt32(() => keyspaceInfo != null ? keyspaceInfo.SingleOrDefault(i => i.Key.Equals(databaseId)).Value.Split(',').Select(x => x.Split('=')).ToDictionary(x => x[0], x => x[1])["expires"] : "0")
                         }
                     }
                 }
